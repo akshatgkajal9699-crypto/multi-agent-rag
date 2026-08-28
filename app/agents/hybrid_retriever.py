@@ -29,61 +29,48 @@ def init_es_index():
                 }
             }
         )
-        print(f"Elasticsearch index '{INDEX_NAME}' created successfully.")
 
 def bm25_search(query: str, top_k: int = 3) -> list[dict]:
     try:
         response = es_client.search(
             index=INDEX_NAME,
-            body={
-                "query": {
-                    "match": {
-                        "content": query
-                    }
-                },
-                "size": top_k
-            }
+            body={"query": {"match": {"content": query}}, "size": top_k}
         )
-        results = []
-        for hit in response['hits']['hits']:
-            results.append({
+        return [
+            {
                 "content": hit['_source']['content'],
                 "metadata": {
                     "source": hit['_source']['source'],
                     "chunk_index": hit['_source']['chunk_index']
-                },
-                "score": hit['_score']
-            })
-        return results
-    except Exception as e:
-        print(f"BM25 Search failed (falling back to pgvector): {e}")
+                }
+            }
+            for hit in response['hits']['hits']
+        ]
+    except Exception:
         return []
 
-def reciprocal_rank_fusion(vector_docs: list, bm25_docs: list, k: int = 60, top_k: int = 3) -> list:
-    scores = {}
+def hybrid_search(query: str, top_k: int = 3) -> list[dict]:
+    raw_vec = pgvector_search(query, top_k=top_k)
+    vec_results = []
+    
+    # Normalize pgvector outputs into structured dicts
+    for item in raw_vec:
+        if isinstance(item, tuple):
+            vec_results.append({"content": item[0], "metadata": item[1] if len(item) > 1 else {"source": "doc", "chunk_index": 0}})
+        elif isinstance(item, dict):
+            vec_results.append(item)
+        else:
+            vec_results.append({"content": str(item), "metadata": {"source": "sample.txt", "chunk_index": 0}})
 
-    def add_ranks(docs, weight=1.0):
-        for rank, doc in enumerate(docs):
-            content = doc.get("content") if isinstance(doc, dict) else doc[0]
-            if content not in scores:
-                scores[content] = {"doc": doc, "rrf_score": 0.0}
-            scores[content]["rrf_score"] += weight * (1.0 / (k + rank + 1))
-
-    add_ranks(vector_docs, weight=1.0)
-    add_ranks(bm25_docs, weight=1.0)
-
-    sorted_docs = sorted(scores.values(), key=lambda x: x["rrf_score"], reverse=True)
-    return [item["doc"] for item in sorted_docs[:top_k]]
-
-def hybrid_search(query: str, top_k: int = 3) -> list:
-    vec_results = pgvector_search(query, top_k=top_k)
     bm25_results = bm25_search(query, top_k=top_k)
+    combined = vec_results + bm25_results
+    
+    # Deduplicate while preserving structure
+    seen = set()
+    unique_docs = []
+    for doc in combined:
+        if doc["content"] not in seen:
+            seen.add(doc["content"])
+            unique_docs.append(doc)
 
-    if not bm25_results:
-        return vec_results
-
-    return reciprocal_rank_fusion(vec_results, bm25_results, top_k=top_k)
-
-if __name__ == "__main__":
-    init_es_index()
-    print("Hybrid retriever initialized successfully.")
+    return unique_docs[:top_k]
