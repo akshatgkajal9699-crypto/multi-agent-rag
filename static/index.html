@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Multi-Agent RAG Assistant</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f6f8; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        #chat-container { width: 100%; max-width: 650px; background: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 85vh; }
+        #header { padding: 15px 20px; background: #1e293b; color: white; font-weight: bold; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .msg { padding: 10px 14px; border-radius: 6px; max-width: 80%; line-height: 1.4; font-size: 14px; }
+        .user { align-self: flex-end; background: #2563eb; color: white; }
+        .assistant { align-self: flex-start; background: #f1f5f9; color: #0f172a; border: 1px solid #e2e8f0; }
+        .tag { font-size: 11px; font-weight: bold; text-transform: uppercase; display: inline-block; padding: 2px 6px; border-radius: 4px; margin-bottom: 6px; }
+        .retrieval { background: #dbeafe; color: #1e40af; }
+        .direct { background: #fef3c7; color: #92400e; }
+        #input-area { padding: 15px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; }
+        input { flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; }
+        button { padding: 10px 18px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div id="chat-container">
+    <div id="header">Multi-Agent RAG Assistant</div>
+    <div id="messages"></div>
+    <div id="input-area">
+        <input type="text" id="query" placeholder="Ask a question..." onkeydown="if(event.key==='Enter') sendQuery()">
+        <button onclick="sendQuery()">Send</button>
+    </div>
+</div>
+
+<script>
+async function sendQuery() {
+    const input = document.getElementById("query");
+    const text = input.value.trim();
+    if (!text) return;
+
+    appendMsg(text, "user");
+    input.value = "";
+
+    try {
+        const res = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: text })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            appendMsg(data.answer, "assistant", data.mode);
+        } else {
+            appendMsg(`Error: ${data.detail || "Server internal error"}`, "assistant");
+        }
+    } catch (e) {
+        appendMsg("Error communicating with backend.", "assistant");
+    }
+}
+
+function appendMsg(text, sender, mode="") {
+    const container = document.getElementById("messages");
+    const div = document.createElement("div");
+    div.className = `msg ${sender}`;
+    if (mode) {
+        const tag = document.createElement("div");
+        tag.className = `tag ${mode}`;
+        tag.innerText = mode;
+        div.appendChild(tag);
+    }
+    const txt = document.createElement("div");
+    txt.innerText = text;
+    div.appendChild(txt);
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+</script>
+</body>
+</html>
