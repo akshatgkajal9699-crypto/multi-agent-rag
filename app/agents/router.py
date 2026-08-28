@@ -1,45 +1,47 @@
-from ollama import Client
+import ollama
 from app.config import OLLAMA_HOST
-from app.agents.retriever import search_documents
+from app.agents.hybrid_retriever import hybrid_search
 from app.agents.generator import generate_response
 
+client = ollama.Client(host=OLLAMA_HOST)
+
+ROUTER_PROMPT = """
+You are an intent router for a RAG system.
+Classify the user's query into one of two categories:
+1. 'RETRIEVE': The query requires specific domain knowledge, factual lookup, or technical documentation.
+2. 'DIRECT': The query is a general greeting, conversational statement, or simple question requiring no documentation.
+
+Respond with ONLY one word: either 'RETRIEVE' or 'DIRECT'.
+"""
+
 def route_and_execute(query: str) -> dict:
-    """Orchestrator: Decides routing logic and returns final answer."""
-    client = Client(host=OLLAMA_HOST, timeout=120.0)
-
-    system_prompt = (
-        "You are a router agent. Analyze the user's query and decide if it requires searching "
-        "the internal knowledge base (e.g., project details, documentation, company info) "
-        "or if it is a general greeting/question.\n"
-        "Respond with ONLY one word: 'RETRIEVE' or 'DIRECT'."
-    )
-
-    decision = client.chat(
+    response = client.chat(
         model="qwen2.5:1.5b",
         messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": query},
+            {"role": "system", "content": ROUTER_PROMPT},
+            {"role": "user", "content": query}
         ],
-    )["message"]["content"].strip().upper()
+        options={"temperature": 0.0}
+    )
 
+    decision = response["message"]["content"].strip().upper()
     print(f"[Router Decision]: {decision}")
 
     if "RETRIEVE" in decision:
-        docs = search_documents(query)
-        answer = generate_response(query, docs)
-        return {"mode": "retrieval", "answer": answer, "sources": docs}
+        docs = hybrid_search(query, top_k=3)
+        gen_result = generate_response(query, docs)
+        return {
+            "mode": "retrieval",
+            "answer": gen_result["answer"],
+            "sources": gen_result["sources"]
+        }
     else:
         direct_response = client.chat(
             model="qwen2.5:1.5b",
-            messages=[{"role": "user", "content": query}],
-        )["message"]["content"]
-        return {"mode": "direct", "answer": direct_response, "sources": []}
-
-if __name__ == "__main__":
-    print("--- Test 1: Knowledge Query ---")
-    res1 = route_and_execute("What database and search technologies are used in Project Alpha?")
-    print(f"Answer: {res1['answer']}\n")
-
-    print("--- Test 2: General Greeting ---")
-    res2 = route_and_execute("Hello, how are you?")
-    print(f"Answer: {res2['answer']}")
+            messages=[{"role": "user", "content": query}]
+        )
+        return {
+            "mode": "direct",
+            "answer": direct_response["message"]["content"],
+            "sources": []
+        }

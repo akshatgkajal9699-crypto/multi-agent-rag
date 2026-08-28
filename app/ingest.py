@@ -1,16 +1,16 @@
 import os
 import glob
+import psycopg2.extras
 import ollama
 from pgvector.psycopg2 import register_vector
 from app.config import EMBEDDING_MODEL
 from app.database import get_db_connection
+from app.agents.hybrid_retriever import es_client, INDEX_NAME, init_es_index
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
-    """Splits text into overlapping word chunks."""
     words = text.split()
     if not words:
         return []
-    
     chunks = []
     i = 0
     while i < len(words):
@@ -20,11 +20,11 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]
     return chunks
 
 def get_embedding(text: str) -> list[float]:
-    """Generates a 768-dim vector embedding using Ollama."""
     response = ollama.embeddings(model=EMBEDDING_MODEL, prompt=text)
     return response["embedding"]
 
 def ingest_data():
+    init_es_index()
     conn = get_db_connection()
     register_vector(conn)
     cursor = conn.cursor()
@@ -36,18 +36,18 @@ def ingest_data():
 
     for file_path in data_files:
         filename = os.path.basename(file_path)
-        print(f"Processing file: {filename}")
+        print(f"Processing file for Hybrid Sync: {filename}")
         
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         chunks = chunk_text(content)
-        print(f"Generated {len(chunks)} chunk(s).")
 
         for idx, chunk in enumerate(chunks):
             embedding = get_embedding(chunk)
             metadata = {"source": filename, "chunk_index": idx}
             
+            # 1. PostgreSQL pgvector
             cursor.execute(
                 """
                 INSERT INTO documents (content, metadata, embedding)
@@ -56,11 +56,20 @@ def ingest_data():
                 (chunk, psycopg2.extras.Json(metadata), embedding),
             )
 
+            # 2. Elasticsearch BM25
+            es_client.index(
+                index=INDEX_NAME,
+                body={
+                    "content": chunk,
+                    "source": filename,
+                    "chunk_index": idx
+                }
+            )
+
     conn.commit()
     cursor.close()
     conn.close()
-    print("Ingestion complete! Chunks successfully embedded and stored in Railway Postgres.")
+    print("Hybrid Ingestion Complete! Data indexed in both pgvector and Elasticsearch.")
 
 if __name__ == "__main__":
-    import psycopg2.extras
     ingest_data()
