@@ -2,7 +2,11 @@ import ollama
 from app.config import OLLAMA_HOST
 from app.agents.hybrid_retriever import hybrid_search
 
-client = ollama.Client(host=OLLAMA_HOST)
+# Pass custom headers to bypass Ngrok free-tier warning page
+client = ollama.Client(
+    host=OLLAMA_HOST,
+    headers={"ngrok-skip-browser-warning": "true"}
+)
 
 def generate_rag_response(query: str, docs: list = None) -> dict:
     if docs is None:
