@@ -10,5 +10,10 @@ client = ollama.Client(
 )
 
 def get_embedding(text: str):
-    response = client.embeddings(model=EMBEDDING_MODEL, prompt=text)
-    return response["embedding"]
+    try:
+        response = client.embed(model=EMBEDDING_MODEL, input=text)
+        return response["embeddings"][0]
+    except Exception:
+        # Fallback to older SDK method format
+        response = client.embeddings(model=EMBEDDING_MODEL, prompt=text)
+        return response["embedding"]
