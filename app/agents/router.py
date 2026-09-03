@@ -16,16 +16,15 @@ Respond strictly with valid JSON using this format:
 OR
 {{"action": "direct", "query": "{query}"}}"""
 
-    response = client.chat(
-        model=LLM_MODEL,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    
-    content = response['message']['content'].strip()
     try:
+        response = client.chat(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        content = response['message']['content'].strip()
         return json.loads(content)
     except Exception:
         return {"action": "retrieve", "query": query}
 
-# Alias for main.py compatibility
-run_rag_pipeline = route_and_execute
+def run_rag_pipeline(query: str):
+    return route_and_execute(query)
