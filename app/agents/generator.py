@@ -1,5 +1,8 @@
 import ollama
-from app.config import OLLAMA_HOST, LLM_MODEL
+import app.config as config
+
+OLLAMA_HOST = getattr(config, 'OLLAMA_HOST', getattr(config, 'OLLAMA_BASE_URL', 'http://localhost:11434'))
+LLM_MODEL = getattr(config, 'LLM_MODEL', getattr(config, 'MODEL_NAME', 'llama3'))
 
 client = ollama.Client(
     host=OLLAMA_HOST,
