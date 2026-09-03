@@ -1,12 +1,10 @@
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Directly target your active ngrok tunnel
+OLLAMA_HOST = "https://reappear-valiant-cacti.ngrok-free.dev"
+OLLAMA_BASE_URL = OLLAMA_HOST
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
-
-# Elasticsearch Configuration
-ELASTIC_URL = os.getenv("https://my-elasticsearch-project-dc1db4.es.us-central1.gcp.elastic.cloud:443", "http://localhost:9200")
-ELASTIC_API_KEY = os.getenv("TnhNZVI2QUI4ZHlGYWh2eGx2QXY6cUpVaDdWQ0ZZbzFpcjVSLWZDMndqZw==", "")
+LLM_MODEL = "llama3"
+MODEL_NAME = "llama3"
+EMBEDDING_MODEL = "nomic-embed-text"
+EMBED_MODEL = "nomic-embed-text"
