@@ -2,7 +2,6 @@ import json
 import ollama
 import app.config as config
 
-# Safely extract host and model, falling back to defaults if missing in config
 OLLAMA_HOST = getattr(config, 'OLLAMA_HOST', getattr(config, 'OLLAMA_BASE_URL', 'http://localhost:11434'))
 LLM_MODEL = getattr(config, 'LLM_MODEL', getattr(config, 'MODEL_NAME', 'llama3'))
 
@@ -16,9 +15,9 @@ def route_and_execute(query: str):
 Query: "{query}"
 
 Respond strictly with valid JSON using this format:
-{{"action": "retrieve", "query": "{query}"}}
+{{"mode": "retrieve", "action": "retrieve", "query": "{query}"}}
 OR
-{{"action": "direct", "query": "{query}"}}"""
+{{"mode": "direct", "action": "direct", "query": "{query}"}}"""
 
     try:
         response = client.chat(
@@ -26,9 +25,14 @@ OR
             messages=[{"role": "user", "content": prompt}]
         )
         content = response['message']['content'].strip()
-        return json.loads(content)
+        data = json.loads(content)
+        
+        # Ensure 'mode' key exists regardless of LLM variations
+        if "mode" not in data:
+            data["mode"] = data.get("action", "retrieve")
+        return data
     except Exception:
-        return {"action": "retrieve", "query": query}
+        return {"mode": "retrieve", "action": "retrieve", "query": query}
 
 def run_rag_pipeline(query: str):
     return route_and_execute(query)
