@@ -26,3 +26,6 @@ OR
         return json.loads(content)
     except Exception:
         return {"action": "retrieve", "query": query}
+
+# Alias for main.py compatibility
+run_rag_pipeline = route_and_execute
