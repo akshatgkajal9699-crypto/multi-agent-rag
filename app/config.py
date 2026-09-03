@@ -4,7 +4,7 @@ import os
 OLLAMA_HOST = "https://reappear-valiant-cacti.ngrok-free.dev"
 OLLAMA_BASE_URL = OLLAMA_HOST
 
-LLM_MODEL = "llama3"
-MODEL_NAME = "llama3"
+LLM_MODEL = "llama3.2"
+MODEL_NAME = "llama3.2"
 EMBEDDING_MODEL = "nomic-embed-text"
 EMBED_MODEL = "nomic-embed-text"
