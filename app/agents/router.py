@@ -19,3 +19,6 @@ def route_query(query: str) -> str:
     )
     decision = response["message"]["content"].strip().upper()
     return "RETRIEVE" if "RETRIEVE" in decision else "DIRECT"
+
+# Alias to satisfy main.py import
+route_and_execute = route_query
